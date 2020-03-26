@@ -31,5 +31,4 @@ exports.createSession = functions.https.onRequest((req, res) => {
     }).catch((error) => {
         res.send(`err: ${JSON.stringify(error)}`);
     })
-
 });
