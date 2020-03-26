@@ -50,3 +50,37 @@ exports.createSession = functions.https.onRequest(async(req, res) => {
     })
 
 });
+//Function that takes a JSON File containing the ID of a session and Retrieves it
+exports.getSession = functions.https.onRequest(async (req,res)=>{
+    try{
+        const sessionId = req.body['ID'];
+        const snapshot  = await db.collection('sessions').doc(`${sessionId}`).get();
+        const data = snapshot.data()
+        if(data){
+            res.send(data);
+        }
+        else{
+            res.send("Please Check your session ID");
+        }
+        
+    }
+    catch(err){
+        //Handle the error
+        console.log("Error while executing function",err);
+        res.send("Error while getting the quiz");
+    }
+})
+//Helper Function that increments submissions field in session 1 by 1
+//This is for testing only
+exports.updateSubmits = functions.https.onRequest((req, res) => {
+    try{
+        const storyRef = db.collection('sessions').doc('0');
+        storyRef.update({ submits: admin.firestore.FieldValue.increment(1) })
+        res.send("Your results were submited !");
+    }
+    catch(err){
+        console.log("Error executing update function",err)
+        res.send("Error executing function");
+    }
+
+    })
