@@ -82,5 +82,4 @@ exports.updateSubmits = functions.https.onRequest((req, res) => {
         console.log("Error executing update function",err)
         res.send("Error executing function");
     }
-
     })
