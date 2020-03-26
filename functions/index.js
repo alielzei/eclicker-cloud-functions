@@ -18,7 +18,17 @@ exports.createSession = functions.https.onRequest(async(req, res) => {
     var _options = req.body['options'] || [];
     var _correct = req.body['correct'] || [];
     var _timeInSecs = req.body['timeInSecs'] || 0;
-    //optionsNumber holds the number that represents how many options you have
+    try{
+        if(!(req.body['title'] && req.body['options'] && req.body['correct'] && req.body['timeInSecs'] )){
+            res.send("Request Failed! few parameters.");
+            return
+        }
+    }
+    catch(err){
+        res.send("Error happened");
+        console.log(err);
+    }
+  //optionsNumber holds the number that represents how many options you have
     var optionsNumber = _options.length;
     //this array will hold the results, it's initilized to 0s
     var _results = [];
