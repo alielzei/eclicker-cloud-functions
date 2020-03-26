@@ -44,7 +44,7 @@ exports.createSession = functions.https.onRequest(async(req, res) => {
         timeInSecs: _timeInSecs,
         results: _results,
     }).then((result) => {
-        res.send(`success ${JSON.stringify(result)}`);
+        res.send(`Session Crated Succesfuly!\n Your session ID is ${ID}.`);
     }).catch((error) => {
         res.send(`err: ${JSON.stringify(error)}`);
     })
