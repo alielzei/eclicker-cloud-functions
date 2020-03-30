@@ -1,95 +1,98 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 var serviceAccount = require("./serviceAccountKey.json");
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: "https://eclicker-1.firebaseio.com"
 });
+
 const db = admin.firestore();
-//Start writing functions
-exports.helloWorld = functions.https.onRequest((req, res) => {
-    res.send("Hello from Firebase!");
-});
-//function that creats a session
-exports.createSession = functions.https.onRequest(async(req, res) => {
-    //Initilizing some variables for better readability
-    var _title = req.body['title'];
-    var _options = req.body['options'];
-    var _correct = req.body['correct'];
-    var _timeInSecs = req.body['timeInSecs'];
-    try{
-        if(!(req.body['title'] && req.body['options'] && req.body['correct'] && req.body['timeInSecs'] )){
-            res.send("Request Failed! few parameters.");
-            return
+
+// NEED TO FIND A BETTER WAY TO GENERATE SESSION ID
+function randomID(){
+	return Math.floor(Math.random()*90000)+10000;
+}
+
+//Function that takes a JSON File containing the ID of a session and Retrieves it
+exports.getSession = functions.https.onRequest((req, res) => {
+    const sessionID = req.query['ID'];
+    if(!sessionID){
+        res.status(400);
+        res.send({ msg: "Session ID not provided" })
+        return;
+    }
+    db.collection('sessions').doc(`${sessionID}`).get()
+    .then((snapshot) => {
+        data = snapshot.data();
+        if(data) res.send(data);
+        else{
+            res.status(404);
+            res.send("Not Found");
         }
+    }).catch((err) => {
+        console.error("getSession cloud function error");
+        console.error(err)
+        res.status(500);
+        res.send("Error while getting the quiz");
+    });
+})
+
+exports.createSession = functions.https.onRequest((req, res) => {
+    id = randomID();
+
+    // console.log(req.body);
+
+    // Initializing some variables for better readability
+    var _title      = req.body['title'];
+    var _options    = req.body['options'];
+    var _correct    = req.body['correct']    || [];
+    var _timeInSecs = req.body['timeInSecs'] || 60;
+
+    if(!(_title && _options)){
+        res.status(400);
+        res.send("title or options not provided");
+        return;
     }
-    catch(err){
-        res.send("Error happened");
-        console.log(err);
+    
+    var _results = {}
+    for(i = 0; i < _options.length; i++){
+        _results[i] = 0;
     }
-  //optionsNumber holds the number that represents how many options you have
-    var optionsNumber = _options.length;
-    //Here I am using try and catch to force createSession function to wait
-    //untill the data is fetched (here size of my collection) from my database before proceeding
-    try{
-        await db.collection('sessions').get().then(snap => {
-            size = snap.size // will return the collection size
-        });
-    }
-    catch(err){
-        console.log(err);
-    }
-    //Without putting try and catch the function will fail here cause it will not get the type of size variable
-    ID = size+1;
-    data = {
-            title: _title,
-            options: _options,
-            correct: _correct,
-            timeInSecs: _timeInSecs
-    }
-    db.collection('sessions').doc(`${ID}`).set(data).then((result) => {
-        res.send(`Session Crated Succesfuly!\n Your session ID is ${ID}.`);
+
+    // NEED TO CHECK IF ID ALREADY EXISTS
+    db.collection('sessions').doc(`${id}`)
+    .set({
+        title: _title,
+        options: _options,
+        correct: _correct,
+        timeInSecs: _timeInSecs,
+        results: _results,
+    })
+    .then((result) => {
+        console.log(`new id ${id}`);
+        res.send({
+            msg: "Session created successfully.",
+            id: id
+        })
     }).catch((error) => {
         res.send(`err: ${JSON.stringify(error)}`);
     })
-
 });
-//Function that takes a JSON File containing the ID of a session and Retrieves it
-exports.getSession = functions.https.onRequest(async (req,res)=>{
-    try{
-        const sessionId = req.query['ID'];
-        const snapshot  = await db.collection('sessions').doc(`${sessionId}`).get();
-        const data = snapshot.data()
-        if(data){
-            res.send(data);
-        }
-        else{
-            res.send("Please Check your session ID");
-        }
-        
-    }
-    catch(err){
-        //Handle the error
-        console.log("Error while executing function",err);
-        res.send("Error while getting the quiz");
-    }
-})
 
 //This function takes a JSON file containing the ID of the session you wish to submit answers for
 //and the option name, kindly check example of a correct JSON file below
-// {	"ID" : 0,
-// 	"optionName" : "option1"
+// {	"ID" : String,
+// 	    "optionIndex": int
 // }
-exports.updateResults = functions.https.onRequest((req, res) => {
-    var _SessionID = req.body['ID']
-    var _optionName = req.body['optionName'];
-    try{
-        const sessionRef = db.collection('sessions').doc(`${_SessionID}`);
-        sessionRef.update( `${_optionName}`,require('firebase-admin').firestore.FieldValue.increment(1));
-        res.send("Your results were submited !");
-    }
-    catch(err){
-        console.log("Error executing update function",err)
-        res.send("Error executing function");
-    }
-    })
+exports.submitAnswer = functions.https.onRequest((req, res) => {
+    var _sessionID = req.body['ID']
+    var _optionIndex = req.body['optionIndex'].toString();
+
+    toIncrement = {};
+    toIncrement[`results.${_optionIndex}`] = admin.firestore.FieldValue.increment(1);
+
+    const myDoc = db.collection('sessions').doc(`${_sessionID}`);
+    myDoc.update(toIncrement);
+    res.send('done');
+});
