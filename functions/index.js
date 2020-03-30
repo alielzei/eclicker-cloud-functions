@@ -30,18 +30,17 @@ exports.getSession = functions.https.onRequest((req, res) => {
             res.status(404);
             res.send("Not Found");
         }
-    }).catch((err) => {
+    })
+    .catch((err) => {
         console.error("getSession cloud function error");
         console.error(err)
         res.status(500);
-        res.send("Error while getting the quiz");
+        res.send("Error while getting the session");
     });
 })
 
 exports.createSession = functions.https.onRequest((req, res) => {
     id = randomID();
-
-    // console.log(req.body);
 
     // Initializing some variables for better readability
     var _title      = req.body['title'];
@@ -75,7 +74,9 @@ exports.createSession = functions.https.onRequest((req, res) => {
             msg: "Session created successfully.",
             id: id
         })
-    }).catch((error) => {
+    })
+    .catch((error) => {
+        res.status(500);
         res.send(`err: ${JSON.stringify(error)}`);
     })
 });
@@ -94,5 +95,5 @@ exports.submitAnswer = functions.https.onRequest((req, res) => {
 
     const myDoc = db.collection('sessions').doc(`${_sessionID}`);
     myDoc.update(toIncrement);
-    res.send('done');
+    res.send('Submitted Answer');
 });
