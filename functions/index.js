@@ -97,3 +97,24 @@ exports.submitAnswer = functions.https.onRequest((req, res) => {
     myDoc.update(toIncrement);
     res.send('Submitted Answer');
 });
+
+exports.getResults = functions.https.onRequest(async(req , res)  => {
+    try{
+        const sessionId = req.body['ID'];
+        const snapshot  = await db.collection('sessions').doc(`${sessionId}`).get();
+        var data = snapshot.data();
+        var result = data.results;
+        if(result){
+            res.send(result);
+        }
+        else{
+            res.send("Please Check your session ID");
+        }
+        
+    }
+    catch(err){
+        //Handle the error
+        console.log("Error while executing function",err);
+        res.send("Error while getting the quiz");
+    }
+})
