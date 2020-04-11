@@ -83,8 +83,9 @@ exports.createSession = functions.https.onRequest((req, res) => {
 
 //This function takes a JSON file containing the ID of the session you wish to submit answers for
 //and the option name, kindly check example of a correct JSON file below
-// {	"ID" : String,
-// 	    "optionIndex": int
+// {	
+//      "ID" : String,
+//      "optionIndex": int
 // }
 exports.submitAnswer = functions.https.onRequest((req, res) => {
     var _sessionID = req.body['ID']
@@ -118,3 +119,14 @@ exports.getResults = functions.https.onRequest(async(req , res)  => {
         res.send("Error while getting the quiz");
     }
 })
+
+exports.getRooms = functions.https.onRequest(async (req, res) => {
+    try{
+        const snapshot = await db.collection('rooms').get();
+        res.send(snapshot.docs.map(doc => doc.data()));
+    }
+    catch(err){
+        res.status(500);
+        res.send('server error');
+    }
+});
