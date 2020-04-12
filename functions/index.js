@@ -1,7 +1,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-var serviceAccount = require("./serviceAccountKey.json");
 
+var serviceAccount = require("./serviceAccountKey.json");
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: "https://eclicker-1.firebaseio.com"
@@ -25,11 +25,12 @@ exports.getSession = functions.https.onRequest((req, res) => {
     db.collection('sessions').doc(`${sessionID}`).get()
     .then((snapshot) => {
         data = snapshot.data();
-        if(data) res.send(data);
+        if(data)res.send(data);
         else{
             res.status(404);
             res.send("Not Found");
         }
+        return;
     })
     .catch((err) => {
         console.error("getSession cloud function error");
@@ -74,6 +75,7 @@ exports.createSession = functions.https.onRequest((req, res) => {
             msg: "Session created successfully.",
             id: id
         })
+        return;
     })
     .catch((error) => {
         res.status(500);
@@ -123,10 +125,69 @@ exports.getResults = functions.https.onRequest(async(req , res)  => {
 exports.getRooms = functions.https.onRequest(async (req, res) => {
     try{
         const snapshot = await db.collection('rooms').get();
-        res.send(snapshot.docs.map(doc => doc.data()));
+        res.send(snapshot.docs.map(doc => {
+            return {
+                "id": doc.id,
+                "name": doc.data()['name'],
+                "owner": doc.data()['owner']
+            };
+        }));
     }
     catch(err){
         res.status(500);
         res.send('server error');
     }
+});
+
+exports.getRoom = functions.https.onRequest(async (req, res) => {
+    const _roomID = req.query['roomID'];
+
+    if(!(_roomID)){
+        res.status(400);
+        res.send("roomID not provided");
+        return;
+    }
+
+    db.collection('sessions').where('room', '==', _roomID).get()
+    .then(snapshot => {
+        res.send(snapshot.docs.map(doc => {
+            return {
+                "id": doc.id,
+                "title": doc.data()['title']
+            };
+        }));
+        return;
+    })
+    .catch(err => {
+        res.status(500);
+        res.send(err);
+        return;
+    });
+});
+
+exports.createRoom = functions.https.onRequest((req, res) => {
+    var _name        = req.body['name'];
+    var _description = req.body['description'] || "";
+
+    if(!(_name)){
+        res.status(400);
+        res.send("name not provided");
+        return;
+    }
+    
+    db.collection('rooms').add({
+        name: _name,
+        description: _description,
+    })
+    .then((result) => {
+        res.send({
+            msg: "Room created successfully.",
+        })
+        return;
+    })
+    .catch((error) => {
+        res.status(500);
+        res.send(`err: ${JSON.stringify(error)}`);
+        return;
+    })
 });
