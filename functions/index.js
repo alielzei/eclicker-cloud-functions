@@ -102,24 +102,28 @@ exports.submitAnswer = functions.https.onRequest((req, res) => {
 });
 
 exports.getResults = functions.https.onRequest(async(req , res)  => {
-    try{
-        const sessionId = req.body['ID'];
-        const snapshot  = await db.collection('sessions').doc(`${sessionId}`).get();
-        var data = snapshot.data();
-        var result = data.results;
-        if(result){
-            res.send(result);
-        }
-        else{
-            res.send("Please Check your session ID");
-        }
-        
+    _sessionID = req.query['ID'];
+
+    if(!_sessionID){
+        res.status(400);
+        res.send("no session id provided");
+        return;
     }
-    catch(err){
-        //Handle the error
-        console.log("Error while executing function",err);
-        res.send("Error while getting the quiz");
-    }
+    
+    db.collection('sessions').doc(`${_sessionID}`).get()
+    .then((snapshot) => {
+        data = snapshot.data();
+        p = {};
+        for(i = 0; i < data["options"].length; i++)
+            p[data["options"][i]] = data["results"][i];
+        res.send(p);
+        return;
+    })  
+    .catch((err) => {
+        res.status(500);
+        res.send(`server error ${err}`);
+        return;
+    });
 })
 
 exports.getRooms = functions.https.onRequest(async (req, res) => {
