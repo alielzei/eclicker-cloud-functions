@@ -113,10 +113,10 @@ exports.getResults = functions.https.onRequest(async(req , res)  => {
     db.collection('sessions').doc(`${_sessionID}`).get()
     .then((snapshot) => {
         data = snapshot.data();
-        p = {};
-        for(i = 0; i < data["options"].length; i++)
-            p[data["options"][i]] = data["results"][i];
-        res.send(p);
+        res.send({
+            options: data["options"],
+            results: Object.values(data["results"])
+        });
         return;
     })  
     .catch((err) => {
