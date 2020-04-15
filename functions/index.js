@@ -44,14 +44,13 @@ exports.createSession = functions.https.onRequest((req, res) => {
     id = randomID();
 
     // Initializing some variables for better readability
-    var _title      = req.body['title'];
-    var _options    = req.body['options'];
-    var _correct    = req.body['correct']    || [];
-    var _timeInSecs = req.body['timeInSecs'] || 60;
-
-    if(!(_title && _options)){
+    var _title   = req.body['title'];
+    var _options = req.body['options'];
+    var _roomID  = req.body['roomID'];
+    
+    if(!(_title && _options && _roomID)){
         res.status(400);
-        res.send("title or options not provided");
+        res.send("missing input");
         return;
     }
     
@@ -65,8 +64,7 @@ exports.createSession = functions.https.onRequest((req, res) => {
     .set({
         title: _title,
         options: _options,
-        correct: _correct,
-        timeInSecs: _timeInSecs,
+        room: _roomID,
         results: _results,
     })
     .then((result) => {
@@ -126,23 +124,6 @@ exports.getResults = functions.https.onRequest(async(req , res)  => {
     });
 })
 
-exports.getRooms = functions.https.onRequest(async (req, res) => {
-    try{
-        const snapshot = await db.collection('rooms').get();
-        res.send(snapshot.docs.map(doc => {
-            return {
-                "id": doc.id,
-                "name": doc.data()['name'],
-                "owner": doc.data()['owner']
-            };
-        }));
-    }
-    catch(err){
-        res.status(500);
-        res.send('server error');
-    }
-});
-
 exports.getRoom = functions.https.onRequest(async (req, res) => {
     const _roomID = req.query['roomID'];
 
@@ -172,16 +153,18 @@ exports.getRoom = functions.https.onRequest(async (req, res) => {
 exports.createRoom = functions.https.onRequest((req, res) => {
     var _name        = req.body['name'];
     var _description = req.body['description'] || "";
+    var _owner       = req.body['owner'];
 
-    if(!(_name)){
+    if(!(_name && _owner)){
         res.status(400);
-        res.send("name not provided");
+        res.send("input missing");
         return;
     }
     
     db.collection('rooms').add({
         name: _name,
         description: _description,
+        owner: _owner
     })
     .then((result) => {
         res.send({
@@ -194,4 +177,135 @@ exports.createRoom = functions.https.onRequest((req, res) => {
         res.send(`err: ${JSON.stringify(error)}`);
         return;
     })
+});
+
+exports.joinRoom = functions.https.onRequest( async (req,res) => {
+    const _userID = req.body['userID'];
+    const _roomToken = req.body['roomToken']
+
+    if(!(_userID && _roomToken)){
+        res.status(400);
+        res.send("userID or roomToken not provided");
+        return;
+    }
+
+    try{
+        userRef = db.collection('users').doc(`${_userID}`)
+        roomRef = db.collection('rooms').doc(`${_roomToken}`)
+        
+        print(userRef.data());
+        print(roomRef.data());
+        
+        userRef.update({
+            // so this is a reference which is great
+            rooms: admin.firestore.FieldValue.arrayUnion(roomRef)
+        })
+        roomRef.update({
+            // this is a string which is great... no im serious IT IS GREAT
+            participants : admin.firestore.FieldValue.arrayUnion(userRef)
+        })
+        res.send("you have joined the room")
+    }
+    catch(err){
+        res.send('error in executing function')
+    }
+
+});
+
+exports.getRoomParticipants = functions.https.onRequest(async (req, res) => {
+    const _roomID = req.query['roomID'];
+
+    if(!(_roomID)){
+        res.status(400);
+        res.send("roomID not provided");
+        return;
+    }
+
+    db.collection('rooms').doc(`${_roomID}`).get()
+    .then(async roomSnapshot => {
+        participants = [];
+        participantsRefs = roomSnapshot.data()["participants"];
+        for(i in participantsRefs){
+            participantRef = await participantsRefs[i].get();
+            participants.push(participantRef.data()['name']);
+        }
+        res.send(participants);
+        return;
+    })
+    .catch(err => {
+        res.status(500);
+        res.send(`server error: ${err}`)
+        return;
+    });
+
+});
+
+// 1
+exports.getOwnedRooms = functions.https.onRequest(async (req, res) => {
+    const _userID = req.query['userID'];
+
+    if(!(_userID)){
+        res.status(400);
+        res.send("userID not provided");
+        return;
+    }
+
+    db.collection('rooms').where('owner', '==', _userID).get()
+    .then(snapshot => {
+        res.send(snapshot.docs.map(doc => {
+            results = {
+                "id": doc.id,
+                "name": doc.data()['name'],
+                "owner": doc.data()['owner']
+            };
+            return results;
+        }));
+        return; 
+    })
+    .catch(err => {
+        res.status(500);
+        res.send(`server error: ${err}`);
+        return;
+    });
+});
+
+// 2
+exports.getJoinedRooms = functions.https.onRequest(async (req, res) => {
+    const _userID = req.query['userID'];
+
+    if(!(_userID)){
+        res.status(400);
+        res.send("userID not provided");
+        return;
+    }
+
+    db.collection('users').doc(_userID).get()
+    .then(async userSnapshot => {
+        rooms = [];
+        // checking which rooms the user is in
+        roomsRefs = userSnapshot.data()["rooms"];
+        // iterating over those references
+        for(i in roomsRefs){
+            // getting that reference
+            roomSnapshot = await roomsRefs[i].get();
+            // checking if it has data
+            // maybe check for each component also
+            if(roomSnapshot.data())
+                // adding to the rooms list
+                rooms.push({
+                    "id": roomSnapshot.id,
+                    "name": roomSnapshot.data()['name'],
+                    "owner": roomSnapshot.data()['owner']
+                });
+        }
+        // sending that result
+        res.send(rooms);
+        return;
+    })
+    .catch(err => {
+        res.status(500);
+        res.send(`server error: ${err}`)
+        return;
+    });
+
 });
