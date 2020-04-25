@@ -105,7 +105,7 @@ exports.createRoom = functions.https.onRequest((req, res) => {
 });
 
 // 4
-exports.joinRoom = functions.https.onRequest( async (req,res) => {
+exports.joinRoom = functions.https.onRequest(async (req,res) => {
     const _userID = req.body['user'];
     const _token = req.body['token']
 
@@ -194,13 +194,15 @@ exports.getParticipants = functions.https.onRequest(async (req, res) => {
         }
 
         participantsRefs = roomSnapshot.data()["participants"];
-        Promise.all(
-            participantsRefs.map(ref => ref.get())
-        )
-        .then(values => {
-            res.send(values.map(snapshot => snapshot.data()['name']))
-            return;
-        })
+        if(participantsRefs)
+            Promise.all(
+                participantsRefs.map(ref => ref.get())
+            )
+            .then(values => {
+                res.send(values.map(snapshot => snapshot.data()['name']))
+                return;
+            });
+        else res.send([]);
         return;
     })
     .catch(err => {
@@ -372,12 +374,10 @@ exports.deactivateSession = functions.https.onRequest(async (req, res) => {
     }
 
     try{
+        result = sessionSnapshot.data();
+        result.session = sessionSnapshot.id;
         await db.collection('history')
-        .add({
-            session: sessionSnapshot.id,
-            room: sessionSnapshot.data()['room'],
-            results: sessionSnapshot.data()['results']
-        });
+        .add(result);
     }
     catch(err){
         res.status(500);
@@ -401,29 +401,50 @@ exports.deactivateSession = functions.https.onRequest(async (req, res) => {
 
 });
 
-// // 13
-// exports.getHistory = functions.https.onRequest(async (req, res) => {
-//     const _room = req.query['room'];
+// 13
+exports.getHistory = functions.https.onRequest(async (req, res) => {
+    const _room = req.query['room'];
 
-//     if(_room == undefined){
-//         res.status(400);
-//         res.send("room not provided");
-//         return;
-//     }
+    if(_room == undefined){
+        res.status(400);
+        res.send("room not provided");
+        return;
+    }
 
-//     db.collection('sessions').where('room', '==', _room).get()
-//     .then(snapshot => {
-//         res.send(snapshot.docs.map(doc => {
-//             return {
-//                 "id": doc.id,
-//                 "title": doc.data()['title']
-//             };
-//         }));
-//         return;
-//     })
-//     .catch(err => {
-//         res.status(500);
-//         res.send(err);
-//         return;
-//     });
-// });
+    db.collection('history').where('room', '==', _room).get()
+    .then(snapshot => {
+        res.send(
+            snapshot.docs.map(doc => ({
+                id: doc.id,
+                title: doc.data()['title'],
+            }))
+        );
+        return;
+    })
+    .catch(err => {
+        res.status(500);
+        res.send(err);
+        return;
+    });
+});
+
+// 14
+exports.getResults = functions.https.onRequest(async (req, res) => {
+    const _session = req.query['session'];
+
+    if(_session == undefined){
+        res.status(400);
+        res.send("session not provided");
+        return;
+    }
+
+    db.collection('history').doc(_session).get()
+    .then(snapshot => {
+        res.send(snapshot.data())
+    })
+    .catch(err => {
+        res.status(500);
+        res.send(err);
+        return;
+    });
+});
