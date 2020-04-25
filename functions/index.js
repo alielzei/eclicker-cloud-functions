@@ -346,7 +346,6 @@ exports.activateSession = functions.https.onRequest(async (req, res) => {
     sessionRef
     .update({
         results: results,
-        activationDate : FieldValue.serverTimestamp()
     })
     .then(() => {
         res.send('success');
@@ -374,15 +373,11 @@ exports.deactivateSession = functions.https.onRequest(async (req, res) => {
     }
 
     try{
+        result = sessionSnapshot.data();
+        result.session = sessionSnapshot.id;
+        result.time = FieldValue.serverTimestamp();
         await db.collection('history')
-        .add({
-            title : sessionSnapshot.title,
-            options : sessionSnapshot.options,
-            session: sessionSnapshot.id,
-            room: sessionSnapshot.data()['room'],
-            results: sessionSnapshot.data()['results'],
-            activationDate : sessionSnapshot.data()['activationDate']
-        });
+        .add(result);
     }
     catch(err){
         res.status(500);
@@ -416,7 +411,9 @@ exports.getHistory = functions.https.onRequest(async (req, res) => {
         return;
     }
 
-    db.collection('history').orderBy('activationDate','asc').where('room', '==', _room).get()
+    db.collection('history')
+    .orderBy('activationDate','asc')
+    .where('room', '==', _room).get()
     .then(snapshot => {
         res.send(
             snapshot.docs.map(doc => ({
@@ -534,6 +531,7 @@ exports.getUser = functions.https.onRequest((req, res) => {
     });
 
 })
+
 //18
 exports.createSessionFromParsedData = functions.firestore.document('parsed/{parsedID}').onCreate((snap, context) => {
       // Get an object representing the document
@@ -566,7 +564,8 @@ exports.createSessionFromParsedData = functions.firestore.document('parsed/{pars
         res.send(`err: ${error}`);
     })
   return true
-  });
+});
+
 //19
 exports.helper = functions.https.onRequest((req, res) => {
   // Initializing some variables for better readability
