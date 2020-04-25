@@ -1,7 +1,8 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-
 var serviceAccount = require("./serviceAccountKey.json");
+let FieldValue = require('firebase-admin').firestore.FieldValue;
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: "https://eclicker-1.firebaseio.com"
@@ -344,7 +345,8 @@ exports.activateSession = functions.https.onRequest(async (req, res) => {
 
     sessionRef
     .update({
-        results: results
+        results: results,
+        activationDate : FieldValue.serverTimestamp()
     })
     .then(() => {
         res.send('success');
@@ -401,29 +403,62 @@ exports.deactivateSession = functions.https.onRequest(async (req, res) => {
 
 });
 
-// // 13
-// exports.getHistory = functions.https.onRequest(async (req, res) => {
-//     const _room = req.query['room'];
+exports.deleteHistory = functions.https.onRequest(async(req,res)=>{
+    var _historyID = req.body["historyID"];
+    try{
+        let deleteDoc = await db.collection('history').doc(`${_historyID}`).delete()
+        .then(snapshot=>{
+            res.tatus(200).send('History Deleted !');
+        })
+    } 
+    catch(err){
+        res.status(500).send(err)
+    }
 
-//     if(_room == undefined){
-//         res.status(400);
-//         res.send("room not provided");
-//         return;
-//     }
+})
 
-//     db.collection('sessions').where('room', '==', _room).get()
-//     .then(snapshot => {
-//         res.send(snapshot.docs.map(doc => {
-//             return {
-//                 "id": doc.id,
-//                 "title": doc.data()['title']
-//             };
-//         }));
-//         return;
-//     })
-//     .catch(err => {
-//         res.status(500);
-//         res.send(err);
-//         return;
-//     });
-// });
+exports.deleteSession = functions.https.onRequest(async(req,res)=>{
+    var _sesionID = req.body["sessionID"];
+    try{
+        let deleteDoc = await db.collection('sessions').doc(`${_sesionID}`).delete()
+        .then(snapshot=>{
+            res.tatus(200).send('Session Deleted !');
+        })
+    } 
+    catch(err){
+        res.status(500).send(err)
+    }
+
+})
+exports.getUser = functions.https.onRequest((req, res) => {
+    const user = req.query['user'];
+
+    if(user == undefined){
+        res.status(400);
+        res.send({ msg: "user not provided" })
+        return;
+    }
+
+    db.collection('users')
+    .doc(`${user}`).get()
+    .then(snapshot => {
+        data = snapshot.data();
+        if(data){
+            res.send({
+                name: data.name,
+                email: data.email,
+                rooms: data.rooms
+            });
+        }
+        else{
+            res.status(404);
+            res.send("Not Found");
+        }
+        return;
+    })
+    .catch((err) => {
+        res.status(500);
+        res.send(`server error: ${err}`);
+    });
+
+})
