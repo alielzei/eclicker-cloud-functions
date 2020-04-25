@@ -256,7 +256,10 @@ exports.getActiveSessions = functions.https.onRequest(async (req, res) => {
     .get()
     .then(snapshot => {
         result = snapshot.docs
-        .filter(doc => doc.data()['results'])
+        .filter(doc => {
+            return doc.data()['results'] 
+            // && doc.data()['respondent'].contains('userID')
+        })
         .map(doc => ({
             "id": doc.id,
             "title": doc.data()['title']
@@ -412,14 +415,14 @@ exports.getHistory = functions.https.onRequest(async (req, res) => {
     }
 
     db.collection('history')
-    .orderBy('activationDate','asc')
+    .orderBy('time','asc')
     .where('room', '==', _room).get()
     .then(snapshot => {
         res.send(
             snapshot.docs.map(doc => ({
                 id: doc.id,
                 title: doc.data()['title'],
-                activationDate: doc.data()['activationDate']
+                time: doc.data()['time'].toDate().toLocaleString()
             }))
         );
         return;
