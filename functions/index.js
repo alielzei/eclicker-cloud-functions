@@ -413,7 +413,7 @@ exports.getHistory = functions.https.onRequest(async (req, res) => {
         return;
     }
 
-    db.collection('history').where('room', '==', _room).get()
+    db.collection('history').orderBy('activationDate').where('room', '==', _room).get()
     .then(snapshot => {
         res.send(
             snapshot.docs.map(doc => ({
@@ -591,3 +591,4 @@ exports.helper = functions.https.onRequest((req, res) => {
   })
   
 });
+
