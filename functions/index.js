@@ -403,6 +403,55 @@ exports.deactivateSession = functions.https.onRequest(async (req, res) => {
 
 });
 
+// 13
+exports.getHistory = functions.https.onRequest(async (req, res) => {
+    const _room = req.query['room'];
+
+    if(_room == undefined){
+        res.status(400);
+        res.send("room not provided");
+        return;
+    }
+
+    db.collection('history').where('room', '==', _room).get()
+    .then(snapshot => {
+        res.send(
+            snapshot.docs.map(doc => ({
+                id: doc.id,
+                title: doc.data()['title'],
+            }))
+        );
+        return;
+    })
+    .catch(err => {
+        res.status(500);
+        res.send(err);
+        return;
+    });
+});
+
+// 14
+exports.getResults = functions.https.onRequest(async (req, res) => {
+    const _session = req.query['session'];
+
+    if(_session == undefined){
+        res.status(400);
+        res.send("session not provided");
+        return;
+    }
+
+    db.collection('history').doc(_session).get()
+    .then(snapshot => {
+        res.send(snapshot.data())
+    })
+    .catch(err => {
+        res.status(500);
+        res.send(err);
+        return;
+    });
+});
+
+// 15
 exports.deleteHistory = functions.https.onRequest(async(req,res)=>{
     var _historyID = req.body["historyID"];
     try{
@@ -417,6 +466,7 @@ exports.deleteHistory = functions.https.onRequest(async(req,res)=>{
 
 })
 
+// 16
 exports.deleteSession = functions.https.onRequest(async(req,res)=>{
     var _sesionID = req.body["sessionID"];
     try{
@@ -430,6 +480,8 @@ exports.deleteSession = functions.https.onRequest(async(req,res)=>{
     }
 
 })
+
+// 17
 exports.getUser = functions.https.onRequest((req, res) => {
     const user = req.query['user'];
 
