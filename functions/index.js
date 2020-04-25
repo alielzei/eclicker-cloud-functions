@@ -427,7 +427,7 @@ exports.deactivateSession = functions.https.onRequest(async (req, res) => {
 
 // 13
 exports.getHistory = functions.https.onRequest(async (req, res) => {
-    const _room = req.query['room'];
+    const _room = req.body['room'];
 
     if(_room == undefined){
         res.status(400);
@@ -436,7 +436,7 @@ exports.getHistory = functions.https.onRequest(async (req, res) => {
     }
 
     db.collection('history')
-    .orderBy('time','asc')
+    .orderBy('time','desc')
     .where('room', '==', _room).get()
     .then(snapshot => {
         res.send(
