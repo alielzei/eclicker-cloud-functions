@@ -48,39 +48,37 @@ exports.getJoinedRooms = functions.https.onRequest(async (req, res) => {
         return;
     }
 
-    db.collection('users').doc(_userID).get()
     // get that user
-    .then(userSnapshot => {
-        roomsRefs = userSnapshot.data()["rooms"];
-        Promise.all(roomsRefs.map(r => r.get()))
-        .then((roomSnapshots) => {
-            // delete inexistent rooms
-            Promise.all(
-                roomSnapshots
-                .filter(r => !r.exists)
-                .map(r => userSnapshot.ref.update({
-                    rooms: admin.firestore.FieldValue.arrayRemove(r.ref)
-                }))
-            )
-            // get remaining rooms
-            .then(() => {
-                res.send(roomSnapshots
-                .filter(s => s.exists)
-                .map(s => {
-                    return {
-                        "id": s.id,
-                        "name": s.data()['name'],
-                        "owner": s.data()['owner']
-                    }
-                }));
-            });
-        })
+    userSnapshot = await db.collection('users').doc(_userID).get();
+    
+    roomsRefs = userSnapshot.data()["rooms"];
+    
+    // get those rooms
+    Promise.all(roomsRefs.map(r => r.get()))
+    .then((roomSnapshots) => {
+        // delete inexistent rooms
+        // by checking which don't exist
+        Promise.all(
+            roomSnapshots
+            .filter(r => !r.exists)
+            .map(r => userSnapshot.ref.update({
+                rooms: admin.firestore.FieldValue.arrayRemove(r.ref)
+            }))
+        )
+        // get remaining rooms
+        .then(() => {
+            res.send(roomSnapshots
+            .filter(s => s.exists)
+            .map(s => {
+                return {
+                    "id": s.id,
+                    "name": s.data()['name'],
+                    "owner": s.data()['owner']
+                }
+            }));
+        });
     })
-    .catch(err => {
-        res.status(500);
-        res.send(`server error: ${err}`)
-        return;
-    });
+
 
 });
 
@@ -254,11 +252,12 @@ exports.createSession = functions.https.onRequest((req, res) => {
 
 // 8
 exports.getActiveSessions = functions.https.onRequest(async (req, res) => {
+    const _user = req.query['user'];
     const _room = req.query['room'];
 
-    if(_room == undefined){
+    if([_user, _room].some(e => e == undefined)){
         res.status(400);
-        res.send("room not provided");
+        res.send("missing input");
         return;
     }
 
@@ -267,10 +266,7 @@ exports.getActiveSessions = functions.https.onRequest(async (req, res) => {
     .get()
     .then(snapshot => {
         result = snapshot.docs
-        .filter(doc => {
-            return doc.data()['results'] 
-            // && doc.data()['respondent'].contains('userID')
-        })
+        .filter(doc => doc.data()['results'])
         .map(doc => ({
             "id": doc.id,
             "title": doc.data()['title']
@@ -288,11 +284,12 @@ exports.getActiveSessions = functions.https.onRequest(async (req, res) => {
 
 // 9
 exports.getSession = functions.https.onRequest((req, res) => {
+    const user = req.query['user']
     const session = req.query['session'];
 
-    if(session == undefined){
+    if([session, user].some(e => e == undefined) ){
         res.status(400);
-        res.send({ msg: "session not provided" })
+        res.send({ msg: "missing input"})
         return;
     }
 
@@ -300,16 +297,24 @@ exports.getSession = functions.https.onRequest((req, res) => {
     .doc(`${session}`).get()
     .then(snapshot => {
         data = snapshot.data();
-        if(data){
-            res.send({
-                title: data.title,
-                options: data.options
-            });
-        }
-        else{
+        if(!data){
             res.status(404);
             res.send("Not Found");
+            return;
         }
+
+        if(data['respondents'] && data['respondents'][`${user}`] != undefined){
+            res.send({
+                free: false
+            })
+            return;
+        }
+
+        res.send({
+            free: true,
+            title: data.title,
+            options: data.options
+        });
         return;
     })
     .catch((err) => {
@@ -321,6 +326,7 @@ exports.getSession = functions.https.onRequest((req, res) => {
 
 // 10
 exports.submitAnswer = functions.https.onRequest((req, res) => {
+    const _user = req.body['user'];
     const _session = req.body['session'];
     const _option = req.body['option'];
     
@@ -330,11 +336,12 @@ exports.submitAnswer = functions.https.onRequest((req, res) => {
         return;
     }
 
-    toIncrement = {};
-    toIncrement[`results.${_option}`] = admin.firestore.FieldValue.increment(1);
+    toUpdate = {};
+    toUpdate[`respondents.${_user}`] = _option;
+    toUpdate[`results.${_option}`] = admin.firestore.FieldValue.increment(1);
 
     db.collection('sessions').doc(`${_session}`)
-    .update(toIncrement)
+    .update(toUpdate)
     .then(() => {
         res.send('success');
         return;
@@ -359,6 +366,7 @@ exports.activateSession = functions.https.onRequest(async (req, res) => {
 
     sessionRef
     .update({
+        respondents: {},
         results: results,
     })
     .then(() => {
@@ -401,6 +409,7 @@ exports.deactivateSession = functions.https.onRequest(async (req, res) => {
 
     sessionRef
     .update({
+        respondents: admin.firestore.FieldValue.delete(),
         results: admin.firestore.FieldValue.delete()
     })
     .then(() => {
@@ -589,7 +598,7 @@ exports.helper = functions.https.onRequest((req, res) => {
 
   if(![_roomID, _title, _options]){
       res.status(400);
-      res.send("missing input");
+      res.send({msg: "missing input"});
       return;
   }
   db.collection('parsed')
