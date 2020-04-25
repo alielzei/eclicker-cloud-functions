@@ -97,7 +97,8 @@ exports.createRoom = functions.https.onRequest((req, res) => {
     db.collection('rooms').add({
         name: _name,
         description: _description,
-        owner: _owner
+        owner: _owner,
+        participants: []
     })
     .then((roomRef) => {
         res.send({
@@ -203,7 +204,7 @@ exports.getParticipants = functions.https.onRequest(async (req, res) => {
             return;
         }
 
-        participantsRefs = roomSnapshot.data()["participants"];
+        participantsRefs = roomSnapshot.data()["participants"] || [];
         Promise.all(
             participantsRefs.map(ref => ref.get())
         )
