@@ -376,9 +376,12 @@ exports.deactivateSession = functions.https.onRequest(async (req, res) => {
     try{
         await db.collection('history')
         .add({
+            title : sessionSnapshot.title,
+            options : sessionSnapshot.options,
             session: sessionSnapshot.id,
             room: sessionSnapshot.data()['room'],
-            results: sessionSnapshot.data()['results']
+            results: sessionSnapshot.data()['results'],
+            activationDate : sessionSnapshot.data()['activationDate']
         });
     }
     catch(err){
@@ -413,12 +416,13 @@ exports.getHistory = functions.https.onRequest(async (req, res) => {
         return;
     }
 
-    db.collection('history').orderBy('activationDate').where('room', '==', _room).get()
+    db.collection('history').orderBy('activationDate','asc').where('room', '==', _room).get()
     .then(snapshot => {
         res.send(
             snapshot.docs.map(doc => ({
                 id: doc.id,
                 title: doc.data()['title'],
+                activationDate: doc.data()['activationDate']
             }))
         );
         return;
