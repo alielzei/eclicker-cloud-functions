@@ -451,63 +451,6 @@ exports.getResults = functions.https.onRequest(async (req, res) => {
     });
 });
 
-// 15
-exports.deleteHistory = functions.https.onRequest(async(req,res)=>{
-    var history = req.body["history"];
-
-    if(history == undefined){
-        res.status(400);
-        res.send('missing input');
-        return;
-    }
-
-    db.collection('history').doc(`${history}`).delete()
-    .then(snapshot => {
-        if(!snapshot.exists){
-            res.status(404);
-            res.send('history element not found');
-            return;
-        }
-        res.status(200);
-        res.send('success');
-        return;
-    })
-    .catch(err =>{
-        res.status(500);
-        res.send(err);
-        return;
-    });
-})
-
-// 16
-exports.deleteSession = functions.https.onRequest(async(req,res)=>{
-    var session = req.body["session"];
-
-    if(session == undefined){
-        res.status(400);
-        res.send('missing input');
-        return;
-    }
-
-    db.collection('sessions').doc(`${session}`).delete()
-    .then(snapshot => {
-        if(!snapshot.exists){
-            res.status(404);
-            res.send('session not found');
-            return;
-        }
-        res.status(200)
-        res.send('success');
-        return;
-    })
-    .catch(err=>{
-        res.status(500)
-        res.send(err)
-        return;
-    });
-
-})
-
 // 17
 exports.getUser = functions.https.onRequest((req, res) => {
     const user = req.query['user'];
