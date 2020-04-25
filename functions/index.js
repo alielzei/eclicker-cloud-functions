@@ -54,14 +54,17 @@ exports.getJoinedRooms = functions.https.onRequest(async (req, res) => {
         Promise.all(
             roomsRefs.map(r => r.get())
         )
-        .then((snapshots) => {
-            res.send(snapshots.map(s => {
+        .then((roomSnapshots) => {
+            res.send(roomSnapshots
+            .filter(snapshot => snapshot.exists)
+            .map(s => {
                 return {
                     "id": s.id,
                     "name": s.data()['name'],
                     "owner": s.data()['owner']
                 }
-            }));
+            }
+            ));
             return;
         });
     })
@@ -535,7 +538,7 @@ exports.getUser = functions.https.onRequest((req, res) => {
 
 })
 
-//18
+// 18
 exports.createSessionFromParsedData = functions.firestore.document('parsed/{parsedID}').onCreate((snap, context) => {
       // Get an object representing the document
       // e.g. {'title': 'myTitle', 'roomID': "1234", options: "{op1,op2,op3}"}
@@ -569,7 +572,7 @@ exports.createSessionFromParsedData = functions.firestore.document('parsed/{pars
   return true
 });
 
-//19
+// 19
 exports.helper = functions.https.onRequest((req, res) => {
   // Initializing some variables for better readability
   var _roomID  = req.body['room'];
@@ -598,3 +601,34 @@ exports.helper = functions.https.onRequest((req, res) => {
   
 });
 
+// 20
+exports.deleteRoom = functions.https.onRequest(async(req,res)=>{
+    var room = req.body["room"];
+
+    if(room == undefined){
+        res.status(400);
+        res.send('missing input');
+        return;
+    }
+
+    await db.collection('sessions')
+    .where('room','==', room)
+    .get().then(function(querySnapshot) {
+      querySnapshot.forEach(function(doc) {
+        doc.ref.delete();
+      });
+    });
+
+    db.collection('rooms').doc(`${room}`)
+    .delete()
+    .then(r => {
+        res.status(200)
+        res.send('success');
+        return;
+    })
+    .catch(err=>{
+        res.status(500)
+        res.send(err)
+        return;
+    });
+})
