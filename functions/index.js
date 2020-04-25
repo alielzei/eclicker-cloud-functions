@@ -427,7 +427,7 @@ exports.deactivateSession = functions.https.onRequest(async (req, res) => {
 
 // 13
 exports.getHistory = functions.https.onRequest(async (req, res) => {
-    const _room = req.body['room'];
+    const _room = req.query['room'];
 
     if(_room == undefined){
         res.status(400);
