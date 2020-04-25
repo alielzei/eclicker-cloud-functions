@@ -169,7 +169,7 @@ exports.getSessions = functions.https.onRequest(async (req, res) => {
         return;
     }
 
-    db.collection('sessions').where('room', '==', _room).get()
+    db.collection('sessions').orderBy('creationTime','desc').where('room', '==', _room).get()
     .then(snapshot => {
         res.send(snapshot.docs.map(doc => {
             return {
@@ -240,6 +240,7 @@ exports.createSession = functions.https.onRequest((req, res) => {
         title: _title,
         options: _options,
         room: _roomID,
+        creationTime : FieldValue.serverTimestamp()
     })
     .then((result) => {
         res.send('session created');
@@ -567,9 +568,6 @@ exports.createSessionFromParsedData = functions.firestore.document('parsed/{pars
       const _room = newValue.roomID;
       var _string = newValue.options; 
       var _options = _string.split(',');
-      console.log(_title);
-      console.log(_room);
-      console.log(_options);
 
       // perform desired operations ...
     db.collection('sessions')
@@ -577,6 +575,7 @@ exports.createSessionFromParsedData = functions.firestore.document('parsed/{pars
         title: _title,
         options: _options,
         room: _room,
+        creationTime :  FieldValue.serverTimestamp()
     })
     .then((result) => {
         res = 'session created';
