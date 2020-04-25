@@ -49,24 +49,32 @@ exports.getJoinedRooms = functions.https.onRequest(async (req, res) => {
     }
 
     db.collection('users').doc(_userID).get()
-    .then(async userSnapshot => {
+    // get that user
+    .then(userSnapshot => {
         roomsRefs = userSnapshot.data()["rooms"];
-        Promise.all(
-            roomsRefs.map(r => r.get())
-        )
+        Promise.all(roomsRefs.map(r => r.get()))
         .then((roomSnapshots) => {
-            res.send(roomSnapshots
-            .filter(snapshot => snapshot.exists)
-            .map(s => {
-                return {
-                    "id": s.id,
-                    "name": s.data()['name'],
-                    "owner": s.data()['owner']
-                }
-            }
-            ));
-            return;
-        });
+            // delete inexistent rooms
+            Promise.all(
+                roomSnapshots
+                .filter(r => !r.exists)
+                .map(r => userSnapshot.ref.update({
+                    rooms: admin.firestore.FieldValue.arrayRemove(r.ref)
+                }))
+            )
+            // get remaining rooms
+            .then(() => {
+                res.send(roomSnapshots
+                .filter(s => s.exists)
+                .map(s => {
+                    return {
+                        "id": s.id,
+                        "name": s.data()['name'],
+                        "owner": s.data()['owner']
+                    }
+                }));
+            });
+        })
     })
     .catch(err => {
         res.status(500);
@@ -611,22 +619,18 @@ exports.deleteRoom = functions.https.onRequest(async(req,res)=>{
         return;
     }
 
-    await db.collection('sessions')
+    db.collection('sessions')
     .where('room','==', room)
-    .get().then(function(querySnapshot) {
-      querySnapshot.forEach(function(doc) {
-        doc.ref.delete();
-      });
-    });
-
-    db.collection('rooms').doc(`${room}`)
-    .delete()
-    .then(r => {
-        res.status(200)
+    .get()
+    // delete sessions
+    .then((sessions) => Promise.all(sessions.docs.map(doc => doc.ref.delete())))
+    // delete room
+    .then(() => db.collection('rooms').doc(`${room}`).delete())
+    .then(() => {
         res.send('success');
         return;
     })
-    .catch(err=>{
+    .catch(err => {
         res.status(500)
         res.send(err)
         return;
