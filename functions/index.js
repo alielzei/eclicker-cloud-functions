@@ -451,6 +451,52 @@ exports.getResults = functions.https.onRequest(async (req, res) => {
     });
 });
 
+// 15
+exports.deleteHistory = functions.https.onRequest(async(req,res)=>{
+    var history = req.body["history"];
+
+    if(history == undefined){
+        res.status(400);
+        res.send('missing input');
+        return;
+    }
+
+    db.collection('history').doc(`${history}`).delete()
+    .then(result => {
+        res.status(200);
+        res.send('success');
+        return;
+    })
+    .catch(err => {
+        res.status(500);
+        res.send(err);
+        return;
+    });
+})
+
+// 16
+exports.deleteSession = functions.https.onRequest(async(req,res)=>{
+    var session = req.body["session"];
+
+    if(session == undefined){
+        res.status(400);
+        res.send('missing input');
+        return;
+    }
+
+    db.collection('sessions').doc(`${session}`).delete()
+    .then(result => {
+        res.status(200)
+        res.send('success');
+        return;
+    })
+    .catch(err=>{
+        res.status(500)
+        res.send(err)
+        return;
+    });
+})
+
 // 17
 exports.getUser = functions.https.onRequest((req, res) => {
     const user = req.query['user'];
@@ -484,3 +530,64 @@ exports.getUser = functions.https.onRequest((req, res) => {
     });
 
 })
+//18
+exports.createSessionFromParsedData = functions.firestore.document('parsed/{parsedID}').onCreate((snap, context) => {
+      // Get an object representing the document
+      // e.g. {'title': 'myTitle', 'roomID': "1234", options: "{op1,op2,op3}"}
+      const newValue = snap.data();
+
+      // access a particular field as you would any JS property
+      const _title = newValue.title;
+      const _room = newValue.roomID;
+      var _string = newValue.options; 
+      var _options = _string.split(',');
+      console.log(_title);
+      console.log(_room);
+      console.log(_options);
+
+      // perform desired operations ...
+    db.collection('sessions')
+    .add({
+        title: _title,
+        options: _options,
+        room: _room,
+    })
+    .then((result) => {
+        res = 'session created';
+        console.log(res);
+        return res ;
+    })
+    .catch((error) => {
+        res.status(500);
+        res.send(`err: ${error}`);
+    })
+  return true
+  });
+//19
+exports.helper = functions.https.onRequest((req, res) => {
+  // Initializing some variables for better readability
+  var _roomID  = req.body['room'];
+  var _title   = req.body['title'];
+  var _options = req.body['options'];
+
+  if(![_roomID, _title, _options]){
+      res.status(400);
+      res.send("missing input");
+      return;
+  }
+  db.collection('parsed')
+  .add({
+      title: _title,
+      options: _options,
+      room: _roomID,
+  })
+  .then((result) => {
+      res.send('created');
+      return;
+  })
+  .catch((error) => {
+      res.status(500);
+      res.send(`err: ${error}`);
+  })
+  
+});
