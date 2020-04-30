@@ -209,7 +209,11 @@ exports.getParticipants = functions.https.onRequest(async (req, res) => {
             participantsRefs.map(ref => ref.get())
         )
         .then(values => {
-            res.send(values.map(snapshot => snapshot.data()['name']))
+            res.send(
+                values
+                .filter(v => v.data())
+                .map(snapshot => snapshot.data()['name'])
+            )
             return;
         })
         return;
