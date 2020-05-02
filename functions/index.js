@@ -8,7 +8,16 @@ admin.initializeApp({
   databaseURL: "https://eclicker-1.firebaseio.com"
 });
 const db = admin.firestore();
-
+//helper function to generate id
+function makeid(length) {
+    var result           = '';
+    var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var charactersLength = characters.length;
+    for ( var i = 0; i < length; i++ ) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result
+}
 // 1
 exports.getHostedRooms = functions.https.onRequest(async (req, res) => {
     const _userID = req.query['user'];
@@ -83,7 +92,7 @@ exports.getJoinedRooms = functions.https.onRequest(async (req, res) => {
 });
 
 // 3
-exports.createRoom = functions.https.onRequest((req, res) => {
+exports.createRoom = functions.https.onRequest(async(req, res) => {
     var _name        = req.body['name'];
     var _description = req.body['description'] || "";
     var _owner       = req.body['user'];
@@ -93,26 +102,55 @@ exports.createRoom = functions.https.onRequest((req, res) => {
         res.send("input missing");
         return;
     }
-    
-    db.collection('rooms').add({
-        name: _name,
-        description: _description,
-        owner: _owner,
-        participants: []
-    })
-    .then((roomRef) => {
-        res.send({
-            "id": roomRef.id,
-            "name": _name,
-            "owner": _owner
-        })
-        return;
-    })
-    .catch((error) => {
-        res.status(500);
-        res.send(`err: ${JSON.stringify(error)}`);
-        return;
-    })
+    const newId = makeid(5);
+    const roomRef = db.collection('rooms').doc('555');
+    roomRef.get()
+    .then(async(docSnapshot) => {
+        if (await(!docSnapshot.exists)) {
+            console.log("it doesnt exist bro");
+            db.collection('rooms').doc(newId).set({
+                name: _name,
+                description: _description,
+                owner: _owner,
+                participants: []
+            })
+            .then((roomRef) => {
+                res.send({
+                    "id": roomRef.id,
+                    "name": _name,
+                    "owner": _owner
+                })
+                return;
+            })
+            .catch((error) => {
+                res.status(500);
+                res.send(`err: ${JSON.stringify(error)}`);
+                return;
+            })
+        } else {
+            console.log("it exist bro");
+            db.collection('rooms').add({
+                name: _name,
+                description: _description,
+                owner: _owner,
+                participants: []
+            })
+            .then((roomRef) => {
+                res.send({
+                    "id": roomRef.id,
+                    "name": _name,
+                    "owner": _owner
+                })
+                return;
+            })
+            .catch((error) => {
+                res.status(500);
+                res.send(`err: ${JSON.stringify(error)}`);
+                return;
+            })
+        }
+    });
+
 });
 
 // 4
