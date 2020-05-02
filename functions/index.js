@@ -102,12 +102,13 @@ exports.createRoom = functions.https.onRequest(async(req, res) => {
         res.send("input missing");
         return;
     }
+
     const newId = makeid(5);
-    const roomRef = db.collection('rooms').doc('555');
+    const roomRef = db.collection('rooms').doc(newId);
     roomRef.get()
     .then(async(docSnapshot) => {
-        if (await(!docSnapshot.exists)) {
-            console.log("it doesnt exist bro");
+        if (!(docSnapshot.exists)) {
+            console.log("it doesnt exist");
             db.collection('rooms').doc(newId).set({
                 name: _name,
                 description: _description,
@@ -128,27 +129,33 @@ exports.createRoom = functions.https.onRequest(async(req, res) => {
                 return;
             })
         } else {
-            console.log("it exist bro");
-            db.collection('rooms').add({
-                name: _name,
-                description: _description,
-                owner: _owner,
-                participants: []
-            })
-            .then((roomRef) => {
-                res.send({
-                    "id": roomRef.id,
-                    "name": _name,
-                    "owner": _owner
+            db.collection('rooms').get().then(snap => {
+                size = snap.size 
+                id = size+1000;
+                console.log(id);
+                ID = id.toString();
+                db.collection('rooms').doc(ID).set({
+                    name: _name,
+                    description: _description,
+                    owner: _owner,
+                    participants: []
                 })
-                return;
-            })
-            .catch((error) => {
-                res.status(500);
-                res.send(`err: ${JSON.stringify(error)}`);
-                return;
-            })
-        }
+                .then((roomRef) => {
+                    res.send({
+                        "id": roomRef.id,
+                        "name": _name,
+                        "owner": _owner
+                    })
+                    return;
+                })
+                .catch((error) => {
+                    res.status(500);
+                    res.send(`err: ${JSON.stringify(error)}`);
+                    return;
+                })
+             })
+            }
+            //  id = size +1000;
     });
 
 });
